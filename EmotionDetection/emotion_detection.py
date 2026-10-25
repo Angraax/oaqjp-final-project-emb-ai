@@ -1,38 +1,42 @@
 """Emotion detection client for the Watson NLP service."""
 
+import json
 import requests
 
 
 WATSON_EMOTION_URL = (
-    "https://sn-watson-emotion.labs.coursera.org/emotionPredict"
+    "https://sn-watson-emotion.labs.skills.network/"
+    "v1/watson.runtime.nlp.v1/NlpService/EmotionPredict"
 )
-WATSON_MODEL_HEADER = "emotion_aggregated-workflow_lang_en_stock"
+WATSON_MODEL_ID = "emotion_aggregated-workflow_lang_en_stock"
 EMOTIONS = ("anger", "disgust", "fear", "joy", "sadness")
 
 
-def emotion_detector(text_to_analyze: str) -> dict:
+def emotion_detector(text_to_analyse):
     """Detect emotions in text and return scores plus the dominant emotion."""
+    headers = {"grpc-metadata-mm-model-id": WATSON_MODEL_ID}
+    request_body = {"raw_document": {"text": text_to_analyse}}
     response = requests.post(
         WATSON_EMOTION_URL,
-        headers={"grpc-metadata-mm-model-id": WATSON_MODEL_HEADER},
-        json={"raw_document": {"text": text_to_analyze}},
+        json=request_body,
+        headers=headers,
         timeout=30,
     )
 
     if response.status_code == 400:
         return {
-            emotion: None for emotion in EMOTIONS
-        } | {"dominant_emotion": None}
+            "anger": None,
+            "disgust": None,
+            "fear": None,
+            "joy": None,
+            "sadness": None,
+            "dominant_emotion": None,
+        }
 
-    response.raise_for_status()
-    payload = response.json()
+    payload = json.loads(response.text)
     emotion_scores = payload["emotionPredictions"][0]["emotion"]
-    scores = {
-        emotion: emotion_scores[emotion]
-        for emotion in EMOTIONS
-    }
-    scores["dominant_emotion"] = max(
+    emotion_scores["dominant_emotion"] = max(
         EMOTIONS,
         key=lambda emotion: emotion_scores[emotion],
     )
-    return scores
+    return emotion_scores

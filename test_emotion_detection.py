@@ -1,5 +1,6 @@
 """Unit tests for the emotion detector."""
 
+import json
 import unittest
 from unittest.mock import Mock, patch
 
@@ -7,32 +8,30 @@ from EmotionDetection.emotion_detection import emotion_detector
 
 
 class TestEmotionDetector(unittest.TestCase):
-    """Tests for Watson emotion response formatting."""
+    """Tests for each required dominant emotion."""
 
     @patch("EmotionDetection.emotion_detection.requests.post")
-    def test_returns_formatted_emotions(self, post):
-        """Return scores and identify the highest-scoring emotion."""
-        response = Mock(status_code=200)
-        response.json.return_value = {
-            "emotionPredictions": [
-                {
-                    "emotion": {
-                        "anger": 0.01,
-                        "disgust": 0.02,
-                        "fear": 0.03,
-                        "joy": 0.9,
-                        "sadness": 0.04,
-                    }
-                }
-            ]
-        }
-        post.return_value = response
+    def test_detects_each_dominant_emotion(self, post):
+        """Identify anger, disgust, fear, joy, and sadness."""
+        for dominant_emotion in ("anger", "disgust", "fear", "joy", "sadness"):
+            scores = {emotion: 0.01 for emotion in (
+                "anger", "disgust", "fear", "joy", "sadness"
+            )}
+            scores[dominant_emotion] = 0.9
+            post.return_value = Mock(
+                status_code=200,
+                text=json.dumps({
+                    "emotionPredictions": [{"emotion": scores}]
+                }),
+            )
 
-        result = emotion_detector("I am very happy")
+            result = emotion_detector(f"I feel {dominant_emotion}")
 
-        self.assertEqual(result["dominant_emotion"], "joy")
-        self.assertEqual(result["joy"], 0.9)
-        post.assert_called_once()
+            self.assertEqual(result["dominant_emotion"], dominant_emotion)
+            self.assertEqual(set(result), {
+                "anger", "disgust", "fear", "joy", "sadness",
+                "dominant_emotion",
+            })
 
     @patch("EmotionDetection.emotion_detection.requests.post")
     def test_returns_empty_result_for_bad_request(self, post):
